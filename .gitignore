@@ -1,2 +1,5 @@
 outputs/*
 .env
+src/__pycache__/*
+graph_db/*
+data/*

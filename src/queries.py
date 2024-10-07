@@ -1,6 +1,55 @@
 from neo4j import GraphDatabase
 
 
+def get_compound_info(tx, compound_id):
+    query = """
+    MATCH (c:Compound {compound_id: $compound_id})
+    RETURN c AS compound
+    """
+    result = tx.run(query, compound_id=compound_id)
+    record = result.single()
+    if record:
+        compound = record["compound"]
+        print(f"Compound: {compound['compound_id']}")
+        print("Properties:")
+        for key, value in compound.items():
+            print(f"  {key}: {value}")
+    else:
+        print(f"No compound found with id: {compound_id}")
+
+
+def find_reactions_with_similar_product_compounds(
+    uri, user, password, target_compound_id, similarity_threshold=None, limit=1000
+):
+    def get_reactions(tx):
+        query = (
+            "MATCH (c:Compound {compound_id: $target_compound_id})-[sim:CHEMICAL_SIMILARITY]-(similar:Compound) "
+            "MATCH (similar)-[:PRODUCT_OF]->(r:Reaction) "
+            "WHERE toFloat(sim.distance) <= $similarity_threshold "
+            "RETURN r.reaction_id AS reaction_id, "
+            "       r.name AS reaction_name, "
+            "       similar.compound_id AS similar_compound_id, "
+            "       similar.name AS similar_compound_name, "
+            "       similar.smiles AS similar_compound_smiles, "
+            "       toFloat(sim.distance) AS similarity_distance "
+            "ORDER BY similarity_distance ASC "
+            "LIMIT $limit"
+        )
+        result = tx.run(
+            query,
+            target_compound_id=target_compound_id,
+            similarity_threshold=similarity_threshold,
+            limit=limit,
+        )
+        return [dict(record) for record in result]
+
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    with driver.session() as session:
+        reactions = session.execute_read(get_reactions)
+    driver.close()
+    return reactions
+
+
 def find_proteins_by_ec_number(
     uri,
     user,
@@ -134,35 +183,3 @@ def find_similar_compounds_and_reactions(
 
     driver.close()
     return similar_compounds
-
-
-def find_reactions_with_similar_product_compounds(
-    uri, user, password, target_compound_id, similarity_threshold=None, limit=1000
-):
-    def get_reactions(tx):
-        query = (
-            "MATCH (c:Compound {compound_id: $target_compound_id})-[sim:CHEMICAL_SIMILARITY]->(similar:Compound) "
-            "MATCH (r:Reaction)-[:PRODUCT_OF]->(similar) "
-            "WHERE $similarity_threshold IS NULL OR sim.distance <= $similarity_threshold "
-            "RETURN r.reaction_id AS reaction_id, "
-            "       r.name AS reaction_name, "
-            "       similar.compound_id AS similar_compound_id, "
-            "       similar.name AS similar_compound_name, "
-            "       similar.smiles AS similar_compound_smiles, "
-            "       sim.distance AS similarity_distance "
-            "ORDER BY similarity_distance ASC "
-            "LIMIT $limit"
-        )
-        result = tx.run(
-            query,
-            target_compound_id=target_compound_id,
-            similarity_threshold=similarity_threshold,
-            limit=limit,
-        )
-        return [dict(record) for record in result]
-
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    with driver.session() as session:
-        reactions = session.execute_read(get_reactions)
-    driver.close()
-    return reactions

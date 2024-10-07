@@ -71,6 +71,33 @@ def store_distances_parquet(
     print(f"Stored {len(distances)} pairwise distances in {output_file}")
 
 
+def store_similarities_parquet(
+    similarities: List[Tuple[str, str, float]],
+    output_file: str,
+    chunk_size: int = 1000000,
+):
+    """
+    Store pre-computed pairwise distances in Parquet format.
+
+    :param distances: List of tuples (compound1_id, compound2_id, distance)
+    :param output_file: Path to the output Parquet file
+    :param chunk_size: Number of rows to write in each chunk (for memory efficiency)
+    """
+    # Convert distances to a pandas DataFrame
+    df = pd.DataFrame(similarities, columns=["compound1", "compound2", "similarity"])
+
+    # Create a PyArrow Table
+    table = pa.Table.from_pandas(df)
+
+    # Write to Parquet file in chunks
+    with pq.ParquetWriter(output_file, table.schema) as writer:
+        for i in range(0, len(df), chunk_size):
+            chunk = table.slice(i, chunk_size)
+            writer.write_table(chunk)
+
+    print(f"Stored {len(similarities)} pairwise similarities in {output_file}")
+
+
 def read_distance_parquet(
     file_path: str, compound1_id: str, compound2_id: str
 ) -> float:

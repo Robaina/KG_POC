@@ -5,3 +5,5 @@ graph_db/*
 data/*
 keys/*
 efs/*
+KG_datasets.ipynb
+development.ipynb

@@ -3,3 +3,5 @@ outputs/*
 src/__pycache__/*
 graph_db/*
 data/*
+keys/*
+efs/*

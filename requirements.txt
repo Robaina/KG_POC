@@ -1,4 +1,9 @@
-boto3
-requests
 neo4j
-pandas
+python-dotenv
+pyfastx
+biopython
+geopandas
+rdkit
+networkx
+matplotlib
+seaborn

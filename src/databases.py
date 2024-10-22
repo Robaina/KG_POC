@@ -15,6 +15,36 @@ from typing import List, Dict
 RDLogger.DisableLog("rdApp.*")
 
 
+def extract_protein_sequences(
+    file_path: str, sequence_ids: List[str]
+) -> Dict[str, str]:
+    """
+    Extract protein sequences from a given file based on a list of sequence IDs.
+
+    Args:
+        file_path (str): The path to the file containing protein sequences.
+        sequence_ids (List[str]): A list of sequence IDs to extract.
+
+    Returns:
+        Dict[str, str]: A dictionary where keys are sequence IDs and values are the corresponding protein sequences.
+    """
+    sequences = {}
+    with open(file_path, "r") as file:
+        current_id = None
+        current_sequence = []
+        for line in file:
+            if line.startswith(">"):
+                if current_id and current_id in sequence_ids:
+                    sequences[current_id] = "".join(current_sequence)
+                current_id = line.split()[0][1:]
+                current_sequence = []
+            elif current_id in sequence_ids:
+                current_sequence.append(line.strip())
+        if current_id and current_id in sequence_ids:
+            sequences[current_id] = "".join(current_sequence)
+    return sequences
+
+
 def parse_reaction_equation(reaction_dict):
     equation = reaction_dict.get("equation", "")
     substrates, products = [], []

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Knowledge Graph Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.19.1/cytoscape.min.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #cy {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            background-color: #000000;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="cy"></div>
+    <script>
+        function positionNodesInCluster(nodes, centerX, centerY, radius) {
+            nodes.forEach((node) => {
+                const angle = 2 * Math.PI * Math.random();
+                const r = radius * Math.sqrt(Math.random());
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+                node.position({ x: x, y: y });
+            });
+        }
+
+        function setupCytoscape(data) {
+            var cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: data.elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'width': 8,
+                            'height': 8,
+                            'background-color': 'data(color)'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 0.3,
+                            'line-color': 'rgba(255, 255, 255, 0.2)',
+                            'curve-style': 'bezier',
+                            'opacity': 0.3
+                        }
+                    },
+                    {
+                        selector: '.label',
+                        style: {
+                            'color': '#FFFFFF',
+                            'font-size': '32px',
+                            'font-weight': 'bold',
+                            'text-outline-color': '#000000',
+                            'text-outline-width': 3,
+                            'background-opacity': 0,
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'label': 'data(label)'
+                        }
+                    }
+                ],
+                layout: { name: 'preset' }
+            });
+
+            const nodeTypes = ['Protein', 'Genome', 'Sample', 'BGC', 'Reaction', 'Compound'];
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const radius = Math.min(window.innerWidth, window.innerHeight) * 0.35;
+
+            // Position nodes by type in a circular layout
+            nodeTypes.forEach((type, index) => {
+                const angle = (2 * Math.PI * index) / nodeTypes.length;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                const typeNodes = cy.nodes().filter(node => node.data('type') === type);
+                positionNodesInCluster(typeNodes, x, y, radius * 0.4);
+
+                // Add type label
+                cy.add({
+                    group: 'nodes',
+                    data: {
+                        id: type + '_label',
+                        label: type,
+                        color: typeNodes.first().data('color')
+                    },
+                    position: {
+                        x: x + radius * 0.25 * Math.cos(angle),
+                        y: y + radius * 0.25 * Math.sin(angle)
+                    },
+                    classes: 'label'
+                });
+            });
+
+            // Add interactivity
+            cy.on('mouseover', 'node', function (e) {
+                if (!e.target.hasClass('label')) {
+                    e.target.style({
+                        'width': 12,
+                        'height': 12,
+                        'opacity': 1
+                    });
+                }
+            });
+
+            cy.on('mouseout', 'node', function (e) {
+                if (!e.target.hasClass('label')) {
+                    e.target.style({
+                        'width': 8,
+                        'height': 8,
+                        'opacity': 1
+                    });
+                }
+            });
+
+            cy.on('zoom', function () {
+                const currentZoom = cy.zoom();
+                const nodeSize = Math.max(8 / currentZoom, 3);
+                cy.nodes().not('.label').style({
+                    'width': nodeSize,
+                    'height': nodeSize
+                });
+            });
+
+            cy.fit(0);
+        }
+
+        fetch('cytoscape_graph.json')
+            .then(response => response.json())
+            .then(data => {
+                setupCytoscape(data);
+                window.cytoscapeData = data;  // Store for resize events
+            })
+            .catch(error => console.error('Error loading the JSON file:', error));
+
+        window.addEventListener('resize', () => {
+            if (window.cytoscapeData) {
+                setupCytoscape(window.cytoscapeData);
+            }
+        });
+    </script>
+</body>
+
+</html>

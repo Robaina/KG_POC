@@ -16,7 +16,9 @@ RDLogger.DisableLog("rdApp.*")
 
 
 def extract_protein_sequences(
-    file_path: str, sequence_ids: List[str]
+    file_path: str,
+    sequence_ids: List[str],
+    keep_original_header: bool = False,
 ) -> Dict[str, str]:
     """
     Extract protein sequences from a given file based on a list of sequence IDs.
@@ -24,24 +26,50 @@ def extract_protein_sequences(
     Args:
         file_path (str): The path to the file containing protein sequences.
         sequence_ids (List[str]): A list of sequence IDs to extract.
+        keep_original_header (bool): If True, use the complete FASTA header as dictionary key,
+                                   if False, use only the sequence ID. Default is False.
 
     Returns:
-        Dict[str, str]: A dictionary where keys are sequence IDs and values are the corresponding protein sequences.
+        Dict[str, str]: A dictionary where keys are either sequence IDs or complete headers
+                       (depending on keep_original_header) and values are the corresponding
+                       protein sequences.
+
+    Example:
+        >>> # With keep_original_header=False (default)
+        >>> seqs = extract_protein_sequences("proteins.fasta", ["seq1", "seq2"])
+        >>> print(seqs.keys())
+        dict_keys(['seq1', 'seq2'])
+
+        >>> # With keep_original_header=True
+        >>> seqs = extract_protein_sequences("proteins.fasta", ["seq1", "seq2"], True)
+        >>> print(seqs.keys())
+        dict_keys(['>seq1 description text', '>seq2 another description'])
     """
     sequences = {}
     with open(file_path, "r") as file:
         current_id = None
+        current_header = None
         current_sequence = []
+
         for line in file:
             if line.startswith(">"):
+                # Save the previous sequence if it's in our list
                 if current_id and current_id in sequence_ids:
-                    sequences[current_id] = "".join(current_sequence)
-                current_id = line.split()[0][1:]
+                    key = current_header if keep_original_header else current_id
+                    sequences[key] = "".join(current_sequence)
+
+                # Get the new header information
+                current_header = line.strip()  # Full header including '>'
+                current_id = line.split()[0][1:]  # Just the ID without '>'
                 current_sequence = []
             elif current_id in sequence_ids:
                 current_sequence.append(line.strip())
+
+        # Don't forget the last sequence
         if current_id and current_id in sequence_ids:
-            sequences[current_id] = "".join(current_sequence)
+            key = current_header if keep_original_header else current_id
+            sequences[key] = "".join(current_sequence)
+
     return sequences
 
 
